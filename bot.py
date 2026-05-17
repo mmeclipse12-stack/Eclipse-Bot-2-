@@ -66,7 +66,7 @@ async def vouch(ctx, quantidade: int = 1):
 
         embed = discord.Embed(
             title="🧪 • VOUCH",
-            description="Mensagem automática de teste do bot.",
+            description="Mensagem automática de vouch.",
             color=0x8A2BE2
         )
 
@@ -108,7 +108,7 @@ async def bigvouch(ctx, quantidade: int = 1):
 
         embed = discord.Embed(
             title="🧪 • BIG VOUCH",
-            description="Mensagem automática de teste do bot.",
+            description="Mensagem automática de vouch.",
             color=0xffd700
         )
 
@@ -150,7 +150,7 @@ async def vouch_fake():
 
     embed = discord.Embed(
         title="🧪 • VOUCH",
-        description="Mensagem automática de teste do bot.",
+        description="Mensagem automática de vouch.",
         color=0x8A2BE2
     )
 
@@ -192,7 +192,7 @@ async def bigvouch_fake():
 
     embed = discord.Embed(
         title="🧪 • BIG VOUCH ECLIPSE",
-        description="Mensagem automática de teste do bot.",
+        description="Mensagem automática de vouch.",
         color=0xffd700
     )
 
