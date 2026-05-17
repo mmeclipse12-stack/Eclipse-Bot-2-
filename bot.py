@@ -8,8 +8,8 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix="+", intents=intents)
 
-CANAL_ID = 1503916757424017529
-BIGVOUCH_CANAL_ID = 1503916783667515432
+CANAL_ID = 1505661424545042563
+BIGVOUCH_CANAL_ID = 1505661455364653266
 
 parar_vouch = False
 parar_bigvouch = False
