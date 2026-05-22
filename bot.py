@@ -177,71 +177,87 @@ async def stopbigvouch(ctx):
     await ctx.send("🛑 Parando os big vouchs manuais...")
 
 class TrocaView(View):
-    def __init__(self, enviador, recebedor):
+    def __init__(self):
         super().__init__(timeout=None)
-
-        self.enviador = enviador
-        self.recebedor = recebedor
 
     @discord.ui.button(label="Enviar", style=discord.ButtonStyle.green)
     async def enviar(self, interaction: discord.Interaction, button: Button):
 
-        if interaction.user.id != self.enviador.id:
-            return await interaction.response.send_message(
-                "❌ Apenas o enviador pode clicar aqui.",
+        canal = interaction.channel.id
+
+        if canal not in trocas:
+            trocas[canal] = {
+                "enviador": interaction.user,
+                "recebedor": None,
+                "valor": None,
+                "item": None,
+                "confirm_enviador": False,
+                "confirm_recebedor": False,
+                "etapa": "valor"
+            }
+
+            await interaction.response.send_message(
+                "💸 Você será quem ENVIA.\nDigite o valor da troca no chat.",
                 ephemeral=True
             )
 
-        trocas[interaction.channel.id] = {
-            "valor": None,
-            "item": None,
-            "confirm_enviador": False,
-            "confirm_recebedor": False,
-            "enviador": self.enviador,
-            "recebedor": self.recebedor
-        }
-
-        await interaction.response.send_message(
-            "💸 Digite o valor da troca no chat.",
-            ephemeral=True
-        )
+        else:
+            await interaction.response.send_message(
+                "❌ Já existe um enviador.",
+                ephemeral=True
+            )
 
     @discord.ui.button(label="Receber", style=discord.ButtonStyle.blurple)
     async def receber(self, interaction: discord.Interaction, button: Button):
 
-        if interaction.user.id != self.recebedor.id:
+        canal = interaction.channel.id
+
+        if canal not in trocas:
             return await interaction.response.send_message(
-                "❌ Apenas quem vai receber pode clicar aqui.",
+                "❌ Primeiro alguém deve clicar em ENVIAR.",
                 ephemeral=True
             )
 
-        if interaction.channel.id not in trocas:
+        troca = trocas[canal]
+
+        if troca["recebedor"] is not None:
             return await interaction.response.send_message(
-                "❌ O enviador ainda não informou o valor.",
+                "❌ Já existe um recebedor.",
                 ephemeral=True
             )
+
+        if interaction.user.id == troca["enviador"].id:
+            return await interaction.response.send_message(
+                "❌ Você já é o enviador.",
+                ephemeral=True
+            )
+
+        troca["recebedor"] = interaction.user
+        troca["etapa"] = "item"
 
         await interaction.response.send_message(
-            "🎁 Digite o item da troca no chat.",
+            "🎁 Você será quem RECEBE.\nDigite o item da troca no chat.",
             ephemeral=True
         )
 
 @bot.command()
-async def ec(ctx, enviador: discord.Member, recebedor: discord.Member):
+async def ec(ctx):
+
+    trocas.pop(ctx.channel.id, None)
 
     embed = discord.Embed(
-        title="🧪 SIMULAÇÃO • Eclipse MM",
+        title="💸 • Eclipse MM",
         description=(
-            f"📤 Enviador: {enviador.mention}\n"
-            f"📥 Recebedor: {recebedor.mention}\n\n"
-            "Clique no botão correspondente."
+            "Clique nos botões abaixo.\n\n"
+            "🟢 Quem vai PAGAR → Enviar\n"
+            "🔵 Quem vai RECEBER → Receber"
         ),
         color=0x8A2BE2
     )
 
     await ctx.send(
         embed=embed,
-        view=TrocaView(enviador, recebedor)
+        view=TrocaView()
     )
 
 @bot.command()
@@ -251,6 +267,9 @@ async def confirmar(ctx):
         return await ctx.send("❌ Nenhuma troca ativa.")
 
     troca = trocas[ctx.channel.id]
+
+    if troca["recebedor"] is None:
+        return await ctx.send("❌ Ainda falta alguém clicar em RECEBER.")
 
     if ctx.author.id == troca["enviador"].id:
         troca["confirm_enviador"] = True
@@ -265,19 +284,25 @@ async def confirmar(ctx):
 
     if troca["confirm_enviador"] and troca["confirm_recebedor"]:
 
-        valor = troca["valor"] or "0"
-        item = troca["item"] or "Não informado"
+        valor = troca["valor"]
+        item = troca["item"]
 
         mm = 1.00
         gateway = 0.20
 
         total = float(valor) + mm + gateway
 
+        try:
+            await ctx.channel.purge(limit=100)
+        except:
+            pass
+
         embed = discord.Embed(
-            title="🧪 SIMULAÇÃO • PAGAMENTO PIX",
+            title="💸 • PAGAMENTO PIX",
             description=(
-                "Sistema apenas para TESTE.\n\n"
-                f"💰 Valor da troca: R$ {valor}\n"
+                f"📤 Enviador: {troca['enviador'].mention}\n"
+                f"📥 Recebedor: {troca['recebedor'].mention}\n\n"
+                f"💰 Valor da troca: R$ {valor:.2f}\n"
                 f"👑 Taxa MM: R$ {mm:.2f}\n"
                 f"⚡ Gateway: R$ {gateway:.2f}\n"
                 f"🎁 Item: {item}\n\n"
@@ -341,28 +366,39 @@ async def on_message(message):
     troca = trocas[message.channel.id]
 
     if (
-        message.author.id == troca["enviador"].id
+        troca["etapa"] == "valor"
+        and message.author.id == troca["enviador"].id
         and troca["valor"] is None
     ):
 
         try:
+
             valor = float(message.content.replace(",", "."))
 
             troca["valor"] = valor
 
+            await message.delete()
+
             await message.channel.send(
-                f"✅ Valor definido: R$ {valor}"
+                f"✅ Valor definido: R$ {valor:.2f}"
             )
 
         except:
-            pass
+
+            await message.channel.send(
+                "❌ Digite apenas números.\nExemplo: `50`"
+            )
 
     elif (
-        message.author.id == troca["recebedor"].id
+        troca["etapa"] == "item"
+        and troca["recebedor"] is not None
+        and message.author.id == troca["recebedor"].id
         and troca["item"] is None
     ):
 
         troca["item"] = message.content
+
+        await message.delete()
 
         await message.channel.send(
             f"🎁 Item definido: {message.content}\n\n"
